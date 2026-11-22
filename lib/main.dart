@@ -16,7 +16,7 @@ final supabase = Supabase.instance.client;
 
 const navy = Color(0xFF102A43);
 const gold = Color(0xFFD4AF37);
-const String adminPin = '1234'; // Admin ဝင်ရန် PIN နံပါတ် (စိတ်ကြိုက်ပြောင်းနိုင်သည်)
+const String adminPin = '1234';
 
 class Product {
   Product({
@@ -29,12 +29,12 @@ class Product {
   });
 
   factory Product.fromMap(Map<String, dynamic> map) => Product(
-        id: map['id'] as int,
-        mm: map['mm'] as String,
-        en: map['en'] as String,
-        category: map['category'] as String,
-        price: map['price'] as int,
-        emoji: map['emoji'] as String,
+        id: (map['id'] as num).toInt(),
+        mm: map['mm'].toString(),
+        en: map['en'].toString(),
+        category: map['category'].toString(),
+        price: (map['price'] as num).toInt(),
+        emoji: map['emoji'].toString(),
       );
 
   final int id;
@@ -51,7 +51,7 @@ class KspApp extends StatefulWidget {
 class _KspAppState extends State<KspApp> {
   bool english = false;
   bool loading = true;
-  bool isAdmin = false; // User နဲ့ Admin ခွဲခြားရန်
+  bool isAdmin = false;
   int page = 0;
   String category = 'အားလုံး';
   String? errorMessage;
@@ -73,11 +73,11 @@ class _KspAppState extends State<KspApp> {
     });
     try {
       final prodData = await supabase.from('products').select().order('id');
-      products = (prodData as List).map((e) => Product.fromMap(e)).toList();
+      products = prodData.map((e) => Product.fromMap(e)).toList();
 
       if (isAdmin) {
         final orderData = await supabase.from('orders').select().order('id', ascending: false);
-        orders = List>.from(orderData);
+        orders = orderData.map((e) => Map<String, dynamic>.from(e)).toList();
       }
     } catch (e) {
       errorMessage = e.toString();
@@ -91,15 +91,16 @@ class _KspAppState extends State<KspApp> {
   int get total {
     int sum = 0;
     cart.forEach((id, qty) {
-      final p = products.where((item) => item.id == id).firstOrNull;
-      if (p != null) sum += p.price * qty;
+      final matches = products.where((item) => item.id == id);
+      if (matches.isNotEmpty) {
+        sum += matches.first.price * qty;
+      }
     });
     return sum;
   }
 
   void toggleAdminMode(BuildContext ctx) {
     if (isAdmin) {
-      // Admin ကနေ User Mode သို့ ပြန်ထွက်ခြင်း
       setState(() {
         isAdmin = false;
         page = 0;
@@ -107,7 +108,6 @@ class _KspAppState extends State<KspApp> {
       return;
     }
 
-    // Admin PIN တောင်းခြင်း
     final pinCtrl = TextEditingController();
     showDialog(
       context: ctx,
@@ -156,7 +156,7 @@ class _KspAppState extends State<KspApp> {
         scaffoldBackgroundColor: const Color(0xFFF5F7FA),
         useMaterial3: true,
         appBarTheme: AppBarTheme(
-          backgroundColor: isAdmin ? const Color(0xFF7B1E1E) : navy, // Admin ဖြစ်ရင် အရောင်ပြောင်းပြမည်
+          backgroundColor: isAdmin ? const Color(0xFF7B1E1E) : navy,
           foregroundColor: Colors.white,
         ),
       ),
@@ -228,7 +228,6 @@ class _KspAppState extends State<KspApp> {
     );
   }
 
-  // ================= USER PAGES =================
   Widget shop() {
     final items = products.where((p) => category == 'အားလုံး' || p.category == category).toList();
     return ListView(padding: const EdgeInsets.all(16), children: [
@@ -279,7 +278,7 @@ class _KspAppState extends State<KspApp> {
   Widget chip(String value, String label) => ChoiceChip(
         label: Text(label),
         selected: category == value,
-        selectedColor: gold.withOpacity(.3),
+        selectedColor: gold.withValues(alpha: 0.3),
         onSelected: (_) => setState(() => category = value),
       );
 
@@ -393,7 +392,6 @@ class _KspAppState extends State<KspApp> {
     ]);
   }
 
-  // ================= ADMIN PAGES =================
   Widget adminProductsPage() => ListView(padding: const EdgeInsets.all(16), children: [
         Text(tr('ကုန်ပစ္စည်းများ စီမံခန့်ခွဲရန်', 'Manage Products'),
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -429,7 +427,8 @@ class _KspAppState extends State<KspApp> {
         const SizedBox(height: 12),
         if (orders.isEmpty) Center(child: Text(tr('အော်ဒါ မရှိသေးပါ', 'No orders yet'))),
         ...orders.map((o) {
-          final items = (o['items'] as List?) ?? [];
+          final rawItems = o['items'];
+          final items = rawItems is Iterable ? rawItems.toList() : [];
           final customerInfo = items.isNotEmpty ? (items.first['customer'] ?? '') : '';
           return Card(
             child: Padding(
@@ -469,7 +468,7 @@ class _KspAppState extends State<KspApp> {
               decoration: InputDecoration(labelText: tr('ဈေးနှုန်း (MMK)', 'Price (MMK)')),
             ),
             DropdownButtonFormField<String>(
-              value: cat,
+              initialValue: cat,
               decoration: InputDecoration(labelText: tr('အမျိုးအစား', 'Category')),
               items: const [
                 DropdownMenuItem(value: 'အချိုရည်', child: Text('အချိုရည် / Drinks')),
