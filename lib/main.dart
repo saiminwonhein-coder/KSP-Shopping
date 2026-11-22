@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-Future<void> main() async {
+Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
@@ -28,7 +28,7 @@ class Product {
     required this.emoji,
   });
 
-  factory Product.fromMap(Map<String, dynamic> map) => Product(
+  factory Product.fromMap(Map map) => Product(
         id: (map['id'] as num).toInt(),
         mm: map['mm'].toString(),
         en: map['en'].toString(),
@@ -45,10 +45,10 @@ class Product {
 class KspApp extends StatefulWidget {
   const KspApp({super.key});
   @override
-  State<KspApp> createState() => _KspAppState();
+  State createState() => _KspAppState();
 }
 
-class _KspAppState extends State<KspApp> {
+class _KspAppState extends State {
   bool english = false;
   bool loading = true;
   bool isAdmin = false;
@@ -56,9 +56,9 @@ class _KspAppState extends State<KspApp> {
   String category = 'အားလုံး';
   String? errorMessage;
 
-  final Map<int, int> cart = {};
-  List<Product> products = [];
-  List> orders = [];
+  final Map cart = {};
+  List products = [];
+  List orders = [];
 
   @override
   void initState() {
@@ -66,7 +66,7 @@ class _KspAppState extends State<KspApp> {
     fetchAllData();
   }
 
-  Future<void> fetchAllData() async {
+  Future fetchAllData() async {
     setState(() {
       loading = true;
       errorMessage = null;
@@ -77,7 +77,7 @@ class _KspAppState extends State<KspApp> {
 
       if (isAdmin) {
         final orderData = await supabase.from('orders').select().order('id', ascending: false);
-        orders = orderData.map((e) => Map<String, dynamic>.from(e)).toList();
+        orders = List.from(orderData);
       }
     } catch (e) {
       errorMessage = e.toString();
@@ -87,13 +87,21 @@ class _KspAppState extends State<KspApp> {
   }
 
   String tr(String mm, String en) => english ? en : mm;
-  int get count => cart.values.fold(0, (a, b) => a + b);
+  int get count {
+    int c = 0;
+    for (final v in cart.values) {
+      c += (v as num).toInt();
+    }
+    return c;
+  }
+
   int get total {
     int sum = 0;
     cart.forEach((id, qty) {
-      final matches = products.where((item) => item.id == id);
-      if (matches.isNotEmpty) {
-        sum += matches.first.price * qty;
+      for (final item in products) {
+        if (item.id == id) {
+          sum += ((item.price as num) * (qty as num)).toInt();
+        }
       }
     });
     return sum;
@@ -298,7 +306,7 @@ class _KspAppState extends State<KspApp> {
               width: double.infinity,
               child: FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: navy),
-                onPressed: () => setState(() => cart[p.id] = (cart[p.id] ?? 0) + 1),
+                onPressed: () => setState(() => cart[p.id] = ((cart[p.id] ?? 0) as num).toInt() + 1),
                 child: Text(tr('ဈေးခြင်းထဲထည့်', 'Add to cart'), style: const TextStyle(fontSize: 12)),
               ),
             ),
@@ -315,25 +323,26 @@ class _KspAppState extends State<KspApp> {
       Text(tr('သင့်ဈေးခြင်း', 'Your Cart'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
       ...cart.entries.map((e) {
         final p = products.firstWhere((item) => item.id == e.key);
+        final qty = (e.value as num).toInt();
         return Card(
           child: ListTile(
             leading: Text(p.emoji, style: const TextStyle(fontSize: 28)),
             title: Text(english ? p.en : p.mm),
-            subtitle: Text('${p.price} MMK × ${e.value}'),
+            subtitle: Text('${p.price} MMK × $qty'),
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               IconButton(
                 onPressed: () => setState(() {
-                  if (e.value == 1) {
+                  if (qty == 1) {
                     cart.remove(e.key);
                   } else {
-                    cart[e.key] = e.value - 1;
+                    cart[e.key] = qty - 1;
                   }
                 }),
                 icon: const Icon(Icons.remove_circle_outline),
               ),
-              Text('${e.value}'),
+              Text('$qty'),
               IconButton(
-                onPressed: () => setState(() => cart[e.key] = e.value + 1),
+                onPressed: () => setState(() => cart[e.key] = qty + 1),
                 icon: const Icon(Icons.add_circle_outline),
               ),
             ]),
@@ -467,7 +476,7 @@ class _KspAppState extends State<KspApp> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(labelText: tr('ဈေးနှုန်း (MMK)', 'Price (MMK)')),
             ),
-            DropdownButtonFormField<String>(
+            DropdownButtonFormField(
               initialValue: cat,
               decoration: InputDecoration(labelText: tr('အမျိုးအစား', 'Category')),
               items: const [
@@ -475,7 +484,7 @@ class _KspAppState extends State<KspApp> {
                 DropdownMenuItem(value: 'မုန့်', child: Text('မုန့် / Snacks')),
                 DropdownMenuItem(value: 'ဆေးဝါး', child: Text('ဆေးဝါး / Medicines')),
               ],
-              onChanged: (v) => refresh(() => cat = v ?? 'မုန့်'),
+              onChanged: (v) => refresh(() => cat = (v ?? 'မုန့်').toString()),
             ),
           ]),
           actions: [
